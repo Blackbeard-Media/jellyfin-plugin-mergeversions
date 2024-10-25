@@ -5,18 +5,32 @@ using MediaBrowser.Controller;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Common.Plugins;
+using MediaBrowser.Controller.Plugins;
+using MediaBrowser.Controller.Library;
+using Microsoft.Extensions.Logging;
+using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.IO;
 
 namespace Jellyfin.Plugin.MergeVersions
 {
     public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages 
     {
-        public Plugin(IServerApplicationPaths appPaths, IXmlSerializer xmlSerializer)
+        private readonly ILoggerFactory _loggerFactory;
+
+        public Plugin(IServerApplicationPaths appPaths, IXmlSerializer xmlSerializer, ILibraryManager libraryManager, ILoggerFactory loggerFactory, IFileSystem fileSystem)
             : base(appPaths, xmlSerializer)
         {
             Instance = this;
+            _loggerFactory = loggerFactory;
+
+            // Create an instance of MergeVersionsListener
+            var mergeVersionsManagerLogger = loggerFactory.CreateLogger<MergeVersionsManager>(); 
+            var _mergeVersionsManager = new MergeVersionsManager(libraryManager, mergeVersionsManagerLogger, fileSystem);
+            var mergeVersionsListenerLogger = loggerFactory.CreateLogger<MergeVersionsListener>(); 
+            new MergeVersionsListener(libraryManager, _mergeVersionsManager, mergeVersionsListenerLogger);
         }
 
-        public override string Name => "Merge Versions";
+        public override string Name => "Merge Versions by BBM";
 
         public static Plugin Instance { get; private set; }
 
@@ -25,7 +39,7 @@ namespace Jellyfin.Plugin.MergeVersions
 
         public PluginConfiguration PluginConfiguration => Configuration;
 
-        private readonly Guid _id = new Guid("f21bbed8-3a97-4d8b-88b2-48aaa65427cb");
+        private readonly Guid _id = new Guid("bba04227-c153-41f2-9ea2-83ed646d2da4");
         public override Guid Id => _id;
 
         public IEnumerable<PluginPageInfo> GetPages()
@@ -34,7 +48,7 @@ namespace Jellyfin.Plugin.MergeVersions
             {
                 new PluginPageInfo
                 {
-                    Name = "Merge Versions",
+                    Name = "Merge Versions by BBM",
                     EmbeddedResourcePath = GetType().Namespace + ".Configuration.configurationpage.html"
                 }
             };

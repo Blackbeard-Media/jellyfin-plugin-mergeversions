@@ -1,8 +1,8 @@
-<h1 align="center">Jellyfin Merge Versions Plugin</h1>
+<h1 align="center">Jellyfin Merge Versions Plugin by BBM</h1>
 <h3 align="center">Part of the <a href="https://jellyfin.org">Jellyfin Project</a></h3>
 
 <p align="center">
-Jellyfin Merge Versions plugin is a plugin that automatically groups every repeated movie;
+Jellyfin Merge Versions plugin is a plugin that automatically groups every repeated movie and episode
 
 </p>
 
@@ -10,8 +10,8 @@ Jellyfin Merge Versions plugin is a plugin that automatically groups every repea
 
 
 ## From Repository
-1. In jellyfin, go to dashboard -> plugins -> Repositories -> add and paste this link https://raw.githubusercontent.com/danieladov/JellyfinPluginManifest/master/manifest.json
-2. Go to Catalog and search for the plugin you want to install
+1. In Jellyfin, go to Dashboard -> Plugins -> Repositories -> Add and paste this Link https://raw.githubusercontent.com/Blackbeard-Media/jellyfin-plugin-manifest/master/manifest.json
+2. o to Catalog and search for the Plugin you want to install
 3. Click on it and install
 4. Restart Jellyfin
 

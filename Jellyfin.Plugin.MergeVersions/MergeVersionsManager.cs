@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -38,7 +39,7 @@ namespace Jellyfin.Plugin.MergeVersions
             _timer = new Timer(_ => OnTimerElapsed(), null, Timeout.Infinite, Timeout.Infinite);
         }
 
-        public void MergeMovies(IProgress<double> progress)
+        public async Task MergeMoviesAsync(IProgress<double> progress)
         {
             _logger.LogInformation("Scanning for repeated movies");
 
@@ -47,10 +48,10 @@ namespace Jellyfin.Plugin.MergeVersions
                 .Where(x => x.Count() > 1)
                 .ToList();
 
+            _logger.LogInformation($"Movies to process: {duplicateMovies.Count}");
+
             var current = 0;
-            Parallel.ForEach(
-                duplicateMovies,
-                async m =>
+            foreach (var m in duplicateMovies)
                 {
                     current++;
                     var percent = current / (double)duplicateMovies.Count * 100;
@@ -58,9 +59,12 @@ namespace Jellyfin.Plugin.MergeVersions
                     _logger.LogInformation(
                         $"Merging {m.ElementAt(0).Name} ({m.ElementAt(0).ProductionYear})"
                     );
-                    await MergeVersions(m.Select(e => e.Id).ToList());
+                    Stopwatch stopwatch = new Stopwatch();
+                    stopwatch.Start();
+                    await MergeVersions(m.Select(m => m.Id).ToList());
+                    stopwatch.Stop();
+                    _logger.LogInformation($"MergeVersions Execution Time: {stopwatch.ElapsedMilliseconds} ms");
                 }
-            );
             progress?.Report(100);
         }
 
@@ -99,6 +103,8 @@ namespace Jellyfin.Plugin.MergeVersions
                 .Where(x => x.Count() > 1)
                 .ToList();
 
+            _logger.LogInformation($"Episodes to process: {duplicateEpisodes.Count}");
+
             var current = 0;
             foreach (var e in duplicateEpisodes)
             {
@@ -106,9 +112,13 @@ namespace Jellyfin.Plugin.MergeVersions
                 var percent = current / (double)duplicateEpisodes.Count * 100;
                 progress?.Report((int)percent);
                 _logger.LogInformation(
-                    $"Merging {e.ElementAt(0).Name} ({e.ElementAt(0).ProductionYear})"
+                    $"Merging {e.ElementAt(0).SeriesName} - {e.ElementAt(0).Name} ({e.ElementAt(0).ProductionYear})"
                 );
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
                 await MergeVersions(e.Select(e => e.Id).ToList());
+                stopwatch.Stop();
+                _logger.LogInformation($"MergeVersions Execution Time : {stopwatch.ElapsedMilliseconds} ms");
             }
             progress?.Report(100);
         }
@@ -170,6 +180,8 @@ namespace Jellyfin.Plugin.MergeVersions
                 .OrderBy(i => i.Id)
                 .ToList();
 
+            _logger.LogInformation($"Items to merge: {items.Count}");
+
             if (items.Count < 2)
             {
                 return;
@@ -193,23 +205,38 @@ namespace Jellyfin.Plugin.MergeVersions
                     .ThenByDescending(i => i.GetDefaultVideoStream()?.Width ?? 0)
                     .First();
             }
+            _logger.LogInformation($"Got primaryVersion: {primaryVersion.Id}");
 
             var alternateVersionsOfPrimary = primaryVersion
                 .LinkedAlternateVersions.Where(l => items.Any(i => i.Path == l.Path))
                 .ToList();
+            _logger.LogInformation($"Got previous linked alternateVersionsOfPrimary: {string.Join(", ", alternateVersionsOfPrimary.Select(l => l.Id))}");
 
             foreach (var item in items.Where(i => !i.Id.Equals(primaryVersion.Id)))
             {
+                var originalItem = item;
+
+                 _logger.LogInformation($"Currently processing item.Id: {item.Id}");
+
+
                 item.SetPrimaryVersionId(
                     primaryVersion.Id.ToString("N", CultureInfo.InvariantCulture)
                 );
 
-                await item.UpdateToRepositoryAsync(
+                _logger.LogInformation($"item.PrimaryVersionId: {originalItem.PrimaryVersionId} vs. originalItem.PrimaryVersionId: {originalItem.PrimaryVersionId}");
+                // Only update if the PrimaryVersionId has changed
+                if (!string.Equals(item.PrimaryVersionId, originalItem.PrimaryVersionId))
+                {
+                    await item.UpdateToRepositoryAsync(
                         ItemUpdateType.MetadataEdit,
                         CancellationToken.None
                     )
                     .ConfigureAwait(false);
+                }
 
+                var linkedVersionsOfSecondary = item.LinkedAlternateVersions.ToList();
+                _logger.LogInformation($"linkedVersionsOfSecondary: {string.Join(", ", linkedVersionsOfSecondary.Select(l => l.Id))}");
+                _logger.LogInformation($"item.Path: {item.Path}");
                 if (
                     !alternateVersionsOfPrimary.Any(i =>
                         string.Equals(i.Path, item.Path, StringComparison.OrdinalIgnoreCase)
@@ -219,8 +246,14 @@ namespace Jellyfin.Plugin.MergeVersions
                     alternateVersionsOfPrimary.Add(
                         new LinkedChild { Path = item.Path, ItemId = item.Id }
                     );
+                    linkedVersionsOfSecondary.Add(
+                        new LinkedChild { Path = primaryVersion.Path, ItemId = primaryVersion.Id }
+                    );
+                        
                 }
-
+                _logger.LogInformation($"Final alternateVersionsOfPrimary: {string.Join(", ", alternateVersionsOfPrimary.Select(l => l.Id))}");
+                _logger.LogInformation($"Final linkedVersionsOfSecondary: {string.Join(", ", linkedVersionsOfSecondary.Select(l => l.Id))}");
+                
                 foreach (var linkedItem in item.LinkedAlternateVersions)
                 {
                     if (
@@ -237,21 +270,29 @@ namespace Jellyfin.Plugin.MergeVersions
                     }
                 }
 
-                if (item.LinkedAlternateVersions.Length > 0)
+                _logger.LogInformation($"linkedVersionsOfSecondary.Count: {linkedVersionsOfSecondary.Count}");
+                if (linkedVersionsOfSecondary.Count > 0)
                 {
-                    item.LinkedAlternateVersions = [];
-                    await item.UpdateToRepositoryAsync(
+                    _logger.LogInformation($"originalItem.LinkedAlternateVersions: {string.Join(", ", originalItem.LinkedAlternateVersions.Select(l => l.Id))} vs. linkedVersionsOfSecondary: {string.Join(", ", linkedVersionsOfSecondary.Select(l => l.Id))}");
+                    if (!originalItem.LinkedAlternateVersions.ToArray().SequenceEqual(linkedVersionsOfSecondary.ToArray()))
+                    {
+                        // Clear LinkedAlternateVersions if there were changes
+                        item.LinkedAlternateVersions = [];
+                        await item.UpdateToRepositoryAsync(
                             ItemUpdateType.MetadataEdit,
                             CancellationToken.None
                         )
                         .ConfigureAwait(false);
+                    }
                 }
             }
 
-            primaryVersion.LinkedAlternateVersions = alternateVersionsOfPrimary.ToArray();
-            await primaryVersion
-                .UpdateToRepositoryAsync(ItemUpdateType.MetadataEdit, CancellationToken.None)
-                .ConfigureAwait(false);
+            // Update primary version's LinkedAlternateVersions only if there are changes
+            if (!primaryVersion.LinkedAlternateVersions.ToArray().SequenceEqual(alternateVersionsOfPrimary.ToArray()))
+            {
+                primaryVersion.LinkedAlternateVersions = alternateVersionsOfPrimary.ToArray();
+                await primaryVersion.UpdateToRepositoryAsync(ItemUpdateType.MetadataEdit, CancellationToken.None).ConfigureAwait(false);
+            }
         }
 
         private async Task DeleteAlternateSources(Guid itemId)
