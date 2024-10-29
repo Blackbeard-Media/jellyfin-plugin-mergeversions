@@ -1,4 +1,4 @@
-<h1 align="center">Jellyfin Merge Versions Plugin by BBM</h1>
+<h1 align="center">Jellyfin Merge Versions Plugin by BBM (Beta)</h1>
 <h3 align="center">Part of the <a href="https://jellyfin.org">Jellyfin Project</a></h3>
 
 <p align="center">
@@ -34,6 +34,6 @@ Jellyfin Merge Versions plugin is a plugin that automatically groups every repea
 ```sh
 dotnet publish --configuration Release --output bin
 ```
-4. Place the resulting .dll file in a folder called ```plugins/Merge versions``` under  the program data directory or inside the portable install directory
+4. Place the resulting .dll file in a folder called ```plugins/Merge Versions``` under  the program data directory or inside the portable install directory
 
 

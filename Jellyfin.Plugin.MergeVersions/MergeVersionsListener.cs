@@ -16,7 +16,7 @@ namespace Jellyfin.Plugin.MergeVersions
         private readonly ILogger<MergeVersionsListener> _logger;
 
         private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private const int delaySeconds = 10;    
+        private const int delaySeconds = 60;    
 
         public MergeVersionsListener(
             ILibraryManager libraryManager, 
