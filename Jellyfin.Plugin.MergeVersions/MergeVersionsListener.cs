@@ -15,8 +15,10 @@ namespace Jellyfin.Plugin.MergeVersions
         private readonly MergeVersionsManager _mergeVersionsManager;
         private readonly ILogger<MergeVersionsListener> _logger;
 
-        private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private const int delaySeconds = 60;    
+        private CancellationTokenSource _episodeCancellationTokenSource = new CancellationTokenSource();
+        private const int episodeDelaySeconds = 180;
+        private CancellationTokenSource _movieCancellationTokenSource = new CancellationTokenSource();
+        private const int movieDelaySeconds = 60;
 
         public MergeVersionsListener(
             ILibraryManager libraryManager, 
@@ -33,25 +35,25 @@ namespace Jellyfin.Plugin.MergeVersions
 
         private async void OnItemAdded(object sender, ItemChangeEventArgs e)
         {
-            // Cancel the previous timer if it exists
-            _cancellationTokenSource.Cancel();
-            _cancellationTokenSource = new CancellationTokenSource();
-
-            // wait 10s
-            try
-            {
-                await Task.Delay(TimeSpan.FromSeconds(delaySeconds), _cancellationTokenSource.Token);
-            }
-            catch (TaskCanceledException)
-            {
-                return;
-            }
 
             var item = e.Item;
 
             if (item is Movie movie)
             {
-                _logger.LogInformation($"New movie added");
+                // Cancel any previous movie delay if exists
+                _movieCancellationTokenSource?.Cancel();
+                _movieCancellationTokenSource = new CancellationTokenSource();
+
+                try                
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(movieDelaySeconds), _movieCancellationTokenSource.Token);
+                }
+                catch (TaskCanceledException)
+                {
+                    return;
+                }
+
+                _logger.LogInformation($"New movie added, {movieDelaySeconds}s ago");
 
                 var progress = new Progress<double>(percent =>
                 {
@@ -62,7 +64,20 @@ namespace Jellyfin.Plugin.MergeVersions
             }
             else if (item is Episode episode)
             {
-                _logger.LogInformation($"New episode added");
+                // Cancel any previous episode delay if exists
+                _episodeCancellationTokenSource?.Cancel();
+                _episodeCancellationTokenSource = new CancellationTokenSource();
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(episodeDelaySeconds), _episodeCancellationTokenSource.Token);
+                }
+                catch (TaskCanceledException)
+                {
+                    return;
+                }
+
+                _logger.LogInformation($"New episode added, {episodeDelaySeconds}s ago");
 
                 var progress = new Progress<double>(percent =>
                 {
