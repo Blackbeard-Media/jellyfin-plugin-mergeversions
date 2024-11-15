@@ -46,7 +46,7 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         public async Task<ActionResult> MergeMoviesRequestAsync()
         {
             _logger.LogInformation("Starting a manual refresh, looking up for repeated versions");
-            await _mergeVersionsManager.MergeMoviesAsync(null);
+            await _mergeVersionsManager.MergeMoviesAsync(null, null, null);
             _logger.LogInformation("Completed refresh");
             return NoContent();
         }
@@ -58,10 +58,10 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         /// <returns>A <see cref="NoContentResult"/> indicating success.</returns>
         [HttpPost("SplitMovies")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
-        public ActionResult SplitMoviesRequest()
+        public async Task<ActionResult> SplitMoviesRequestAsync()
         {
             _logger.LogInformation("Spliting all movies");
-            _mergeVersionsManager.SplitMovies(null);
+            await _mergeVersionsManager.SplitMoviesAsync(null, null, null);
             _logger.LogInformation("Completed");
             return NoContent();
         }
@@ -76,7 +76,7 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         public async Task<ActionResult> MergeEpisodesRequestAsync()
         {
             _logger.LogInformation("Starting a manual refresh, looking up for repeated versions");
-            await _mergeVersionsManager.MergeEpisodesAsync(null);
+            await _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, null);
             _logger.LogInformation("Completed refresh");
             return NoContent();
         }
@@ -90,8 +90,8 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<ActionResult> SplitEpisodesRequestAsync()
         {
-            _logger.LogInformation("Spliting all movies");
-            await _mergeVersionsManager.SplitEpisodesAsync(null);
+            _logger.LogInformation("Spliting all episodes");
+            await _mergeVersionsManager.SplitEpisodesAsync(null, null, null, null, null, null);
             _logger.LogInformation("Completed");
             return NoContent();
         }
