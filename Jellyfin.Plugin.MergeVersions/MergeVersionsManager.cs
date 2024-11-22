@@ -38,7 +38,7 @@ namespace Jellyfin.Plugin.MergeVersions
 
         public async Task MergeMoviesAsync(String name, int? productionYear, IProgress<double> progress)
         {
-             if (name != null)
+            if (name != null)
             {
                 _logger.LogInformation($"Scanning for repeated movies: {name} ({productionYear})");
             } 

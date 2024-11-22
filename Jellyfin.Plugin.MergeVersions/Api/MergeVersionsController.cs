@@ -46,8 +46,7 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         public async Task<ActionResult> MergeMoviesRequestAsync()
         {
             _logger.LogInformation("Starting a manual refresh, looking up for repeated versions");
-            await _mergeVersionsManager.MergeMoviesAsync(null, null, null);
-            _logger.LogInformation("Completed refresh");
+            _ = _mergeVersionsManager.MergeMoviesAsync(null, null, null);
             return NoContent();
         }
 
@@ -61,8 +60,7 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         public async Task<ActionResult> SplitMoviesRequestAsync()
         {
             _logger.LogInformation("Spliting all movies");
-            await _mergeVersionsManager.SplitMoviesAsync(null, null, null);
-            _logger.LogInformation("Completed");
+            _ = _mergeVersionsManager.SplitMoviesAsync(null, null, null);
             return NoContent();
         }
 
@@ -76,8 +74,7 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         public async Task<ActionResult> MergeEpisodesRequestAsync()
         {
             _logger.LogInformation("Starting a manual refresh, looking up for repeated versions");
-            await _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, null);
-            _logger.LogInformation("Completed refresh");
+            _ = _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, null);
             return NoContent();
         }
 
@@ -91,8 +88,7 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         public async Task<ActionResult> SplitEpisodesRequestAsync()
         {
             _logger.LogInformation("Spliting all episodes");
-            await _mergeVersionsManager.SplitEpisodesAsync(null, null, null, null, null, null);
-            _logger.LogInformation("Completed");
+            _ = _mergeVersionsManager.SplitEpisodesAsync(null, null, null, null, null, null);
             return NoContent();
         }
     }

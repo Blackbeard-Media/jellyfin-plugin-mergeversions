@@ -31,11 +31,17 @@
                     <button is="emby-button" type="button" class="raised block" id="refresh-library"
                         onclick=mergeMovies()><span>Merge All Movies</span></button>
                     <button is="emby-button" type="button" class="raised block" id="split-library"
-                        onclick=splitMovies()><span>Split All Movies (use with caution)</span></button>
-                    <button is="emby-button" type="button" class="raised block" id="split-library"
+                        onclick=splitMovies()><span>Reset All Movies (use with caution)</span></button>
+                    <button is="emby-button" type="button" class="raised block" id="refresh-library"
                         onclick=mergeEpisodes()><span>Merge All Episodes</span></button>
                     <button is="emby-button" type="button" class="raised block" id="split-library"
-                        onclick=splitEpisodes()><span>Split All Episodes (use with caution)</span></button>
+                        onclick=splitEpisodes()><span>Reset All Episodes (use with caution)</span></button>
+
+                        <div class="verticalSection">
+                            <p>
+                                To split versions, you must first check all the associated paths listed above depending on the respective type (Movie, Episodes).
+                            </p>
+                        </div>
                 </form>
             </div>
         </div>
