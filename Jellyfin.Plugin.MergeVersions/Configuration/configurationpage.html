@@ -17,7 +17,6 @@
                             providers or that your NFO files contain the respective information.
                         </p>
                     </div>
-                    <br />
                     <div>
                         <h3 class="checkboxListLabel">Select paths to exclude from merging:</h3>
                         <div id="divTraktLocations" class="paperList checkboxList checkboxList-paperList">
@@ -26,22 +25,25 @@
 
 
                     <button is="emby-button" type="button" class="raised button-submit block emby-button"
-                        id="refresh-library" onclick=save()><span>Save</span></button>
-
+                        id="refresh-library" onclick=save()><span>Save</span>
+                    </button>
                     <button is="emby-button" type="button" class="raised block" id="refresh-library"
-                        onclick=mergeMovies()><span>Merge All Movies</span></button>
-                    <button is="emby-button" type="button" class="raised block" id="split-library"
-                        onclick=splitMovies()><span>Reset All Movies (use with caution)</span></button>
+                        onclick=mergeMovies()><span>Merge All Movies</span>
+                    </button>
                     <button is="emby-button" type="button" class="raised block" id="refresh-library"
-                        onclick=mergeEpisodes()><span>Merge All Episodes</span></button>
+                        onclick=mergeEpisodes()><span>Merge All Episodes</span>
+                    </button>
                     <button is="emby-button" type="button" class="raised block" id="split-library"
-                        onclick=splitEpisodes()><span>Reset All Episodes (use with caution)</span></button>
-
-                        <div class="verticalSection">
-                            <p>
-                                To split versions, you must first check all the associated paths listed above depending on the respective type (Movie, Episodes).
-                            </p>
-                        </div>
+                        onclick=splitMovies()><span>Reset All Movies (use with caution)</span>
+                    </button>
+                    <button is="emby-button" type="button" class="raised block" id="split-library"
+                        onclick=splitEpisodes()><span>Reset All Episodes (use with caution)</span>
+                    </button>
+                    <div class="verticalSection">
+                        <p>
+                            To split versions, you must first check all the associated paths listed above depending on the respective type (Movies, Episodes).
+                        </p>
+                    </div>
                 </form>
             </div>
         </div>

@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MergeVersions
 {
-    public class MergeVersionsListener
+    public class MergeVersionsListener : IDisposable
     {
         private readonly ILibraryManager _libraryManager;
         private readonly MergeVersionsManager _mergeVersionsManager;
@@ -35,13 +35,9 @@ namespace Jellyfin.Plugin.MergeVersions
             _libraryManager = libraryManager;
             _mergeVersionsManager = mergeVersionsManager; 
             _logger = logger;
-
-            // Subscribe to the library's item added and removed event
-            _libraryManager.ItemUpdated += OnItemUpdated;
-            _libraryManager.ItemRemoved += OnItemRemoved;
         }
 
-        private async void OnItemRemoved(object sender, ItemChangeEventArgs e)
+        private async void OnLibraryManagerItemRemoved(object sender, ItemChangeEventArgs e)
         {            
             if (string.IsNullOrEmpty(e.Item.Name))
             {
@@ -116,7 +112,7 @@ namespace Jellyfin.Plugin.MergeVersions
             }
         }
 
-        private async void OnItemUpdated(object sender, ItemChangeEventArgs e)
+        private async void OnLibraryManagerItemUpdated(object sender, ItemChangeEventArgs e)
         {
             if (e.Item.LocationType == LocationType.Virtual)
             {
@@ -194,6 +190,38 @@ namespace Jellyfin.Plugin.MergeVersions
 
                 await Task.Delay(TimeSpan.FromMilliseconds(5000));
                 _processingMergeItems.TryRemove(key, out _);
+            }
+        }
+
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            // Subscribe to the library's item added and removed event
+            _libraryManager.ItemUpdated += OnLibraryManagerItemUpdated;
+            _libraryManager.ItemRemoved += OnLibraryManagerItemRemoved;
+
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            // Unsubscribe to the library's item added and removed event
+            _libraryManager.ItemUpdated -= OnLibraryManagerItemUpdated;
+            _libraryManager.ItemRemoved -= OnLibraryManagerItemRemoved;
+
+            return Task.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing) 
+            { 
+                _semaphore?.Dispose();
             }
         }
 
