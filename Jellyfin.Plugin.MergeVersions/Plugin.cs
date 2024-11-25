@@ -21,13 +21,6 @@ namespace Jellyfin.Plugin.MergeVersions
             : base(appPaths, xmlSerializer)
         {
             Instance = this;
-            _loggerFactory = loggerFactory;
-
-            // Create an instance of MergeVersionsListener
-            var mergeVersionsManagerLogger = loggerFactory.CreateLogger<MergeVersionsManager>(); 
-            var _mergeVersionsManager = new MergeVersionsManager(libraryManager, mergeVersionsManagerLogger, fileSystem);
-            var mergeVersionsListenerLogger = loggerFactory.CreateLogger<MergeVersionsListener>(); 
-            new MergeVersionsListener(libraryManager, _mergeVersionsManager, mergeVersionsListenerLogger);
         }
 
         public override string Name => "Merge Versions by BBM (Beta)";
