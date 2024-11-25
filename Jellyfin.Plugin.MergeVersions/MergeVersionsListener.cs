@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Library;
@@ -7,11 +8,12 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Model.Entities;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MergeVersions
 {
-    public class MergeVersionsListener : IDisposable
+    public class MergeVersionsListener : IHostedService, IDisposable
     {
         private readonly ILibraryManager _libraryManager;
         private readonly MergeVersionsManager _mergeVersionsManager;
@@ -19,6 +21,9 @@ namespace Jellyfin.Plugin.MergeVersions
 
         private readonly ConcurrentDictionary<string, bool> _processingMergeItems = new ConcurrentDictionary<string, bool>();
         private readonly ConcurrentDictionary<string, bool> _processingSplitItems = new ConcurrentDictionary<string, bool>();
+
+        private bool _mergeMoviesInProgress = false;
+        private bool _mergeEpisodesInProgress = false;
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(4); // limit concurrent async tasks
         
         private enum MediaType
@@ -71,7 +76,7 @@ namespace Jellyfin.Plugin.MergeVersions
                 return;
             }
 
-            await SplitRemovedItem(name, productionYear, seriesName, parentIndexNumber, indexNumber, mediaType);
+            _ = SplitRemovedItem(name, productionYear, seriesName, parentIndexNumber, indexNumber, mediaType);
         }
         
         private async Task SplitRemovedItem(
@@ -112,7 +117,7 @@ namespace Jellyfin.Plugin.MergeVersions
             }
         }
 
-        private async void OnLibraryManagerItemUpdated(object sender, ItemChangeEventArgs e)
+        private void OnLibraryManagerItemUpdated(object sender, ItemChangeEventArgs e)
         {
             if (e.Item.LocationType == LocationType.Virtual)
             {
@@ -150,7 +155,7 @@ namespace Jellyfin.Plugin.MergeVersions
                 return;
             }
 
-            await MergeUpdatedItem(name, productionYear, seriesName, parentIndexNumber, indexNumber, mediaType);
+            _ = MergeUpdatedItem(name, productionYear, seriesName, parentIndexNumber, indexNumber, mediaType);
         }
 
         private async Task MergeUpdatedItem(
@@ -159,6 +164,49 @@ namespace Jellyfin.Plugin.MergeVersions
             string key = $"{name}-{productionYear}-{seriesName}-{parentIndexNumber}-{indexNumber}-{mediaType}";
             if (!_processingMergeItems.TryAdd(key, true))
             {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(5000));
+            
+            if (_processingMergeItems.Count(item => item.Key.EndsWith($"-{MediaType.Movie}")) >= 5)
+            {
+                if (_mergeMoviesInProgress)
+                {
+                    return;
+                }
+                _mergeMoviesInProgress = true;
+
+                await _mergeVersionsManager.MergeMoviesAsync(null, null, null);
+
+                foreach (var eKey in _processingMergeItems.Keys.ToList())
+                {
+                    if (eKey.Contains("-" + MediaType.Movie.ToString()))
+                    {
+                        _processingMergeItems.TryRemove(eKey, out _);
+                    }
+                }
+                _mergeMoviesInProgress = false;
+                return;
+            }
+            else if (_processingMergeItems.Count(item => item.Key.EndsWith($"-{MediaType.Episode}")) >= 15)
+            {
+                if (_mergeEpisodesInProgress)
+                {
+                    return;
+                }
+                _mergeEpisodesInProgress = true;
+
+                await _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, null);
+
+                foreach (var eKey in _processingMergeItems.Keys.ToList())
+                {
+                    if (eKey.Contains("-" + MediaType.Episode.ToString()))
+                    {
+                        _processingMergeItems.TryRemove(eKey, out _);
+                    }
+                }
+                _mergeEpisodesInProgress = false;
                 return;
             }
 
