@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <IsPackable>true</IsPackable>
-    <AssemblyVersion>10.10.0.1</AssemblyVersion>
+    <AssemblyVersion>10.10.0.2</AssemblyVersion>
     <FileVersion>10.10.0.1</FileVersion>
     <Authors />
     <Company />  		        
