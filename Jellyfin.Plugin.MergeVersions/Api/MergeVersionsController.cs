@@ -59,8 +59,8 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<ActionResult> SplitMoviesRequestAsync()
         {
-            _logger.LogInformation("Spliting all movies");
-            _ = _mergeVersionsManager.SplitMoviesAsync(null, null, null);
+            _logger.LogInformation("Splitting all movies");
+            _ = _mergeVersionsManager.SplitMoviesAsync(null, null, false, null);
             return NoContent();
         }
 
@@ -87,8 +87,8 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<ActionResult> SplitEpisodesRequestAsync()
         {
-            _logger.LogInformation("Spliting all episodes");
-            _ = _mergeVersionsManager.SplitEpisodesAsync(null, null, null, null, null, null);
+            _logger.LogInformation("Splitting all episodes");
+            _ = _mergeVersionsManager.SplitEpisodesAsync(null, null, null, null, null, false, null);
             return NoContent();
         }
     }

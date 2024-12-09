@@ -47,7 +47,7 @@ namespace Jellyfin.Plugin.MergeVersions
                 _logger.LogInformation("Scanning for repeated movies");
             }
 
-            var duplicateMovies = GetMoviesFromLibrary()
+            var duplicateMovies = GetMoviesFromLibrary(true)
                 .Where(x => 
                     (string.IsNullOrEmpty(name) || x.Name == name) &&
                     (productionYear == null || x.ProductionYear == productionYear)
@@ -75,9 +75,9 @@ namespace Jellyfin.Plugin.MergeVersions
             progress?.Report(100);
         }
 
-        public async Task SplitMoviesAsync(String name, int? productionYear, IProgress<double> progress)
+        public async Task SplitMoviesAsync(String name, int? productionYear, bool checkIsEligible, IProgress<double> progress)
         {
-            var movies = GetMoviesFromLibrary()
+            var movies = GetMoviesFromLibrary(checkIsEligible)
                 .Where(x => 
                     (string.IsNullOrEmpty(name) || x.Name == name) &&
                     (productionYear == null || x.ProductionYear == productionYear)
@@ -113,7 +113,7 @@ namespace Jellyfin.Plugin.MergeVersions
                 _logger.LogInformation("Scanning for repeated episodes");
             }
 
-            var duplicateEpisodes = GetEpisodesFromLibrary()
+            var duplicateEpisodes = GetEpisodesFromLibrary(true)
                 .Where(x => 
                     (string.IsNullOrEmpty(name) || x.Name == name) &&
                     (productionYear == null || x.ProductionYear == productionYear) &&
@@ -145,9 +145,9 @@ namespace Jellyfin.Plugin.MergeVersions
         }
 
         public async Task SplitEpisodesAsync(
-            String name, int? productionYear, string seriesName, int? parentIndexNumber, int? indexNumber, IProgress<double> progress)
+            String name, int? productionYear, string seriesName, int? parentIndexNumber, int? indexNumber, bool checkIsEligible, IProgress<double> progress)
         {
-            var episodes = GetEpisodesFromLibrary()
+            var episodes = GetEpisodesFromLibrary(checkIsEligible)
                 .Where(x => 
                     (string.IsNullOrEmpty(name) || x.Name == name) &&
                     (productionYear == null || x.ProductionYear == productionYear) &&
@@ -174,38 +174,76 @@ namespace Jellyfin.Plugin.MergeVersions
             progress?.Report(100);
         }
 
-        private List<Movie> GetMoviesFromLibrary()
+        private List<Movie> GetMoviesFromLibrary(bool checkIsEligible)
         {
-            return _libraryManager
-                .GetItemList(
-                    new InternalItemsQuery
-                    {
-                        IncludeItemTypes = [BaseItemKind.Movie],
-                        IsVirtualItem = false,
-                        Recursive = true,
-                        HasTmdbId = true,
-                    }
-                )
-                .Select(m => m as Movie)
-                .Where(IsEligible)
-                .ToList();
+            if (checkIsEligible)
+            {
+                return _libraryManager
+                    .GetItemList(
+                        new InternalItemsQuery
+                        {
+                            IncludeItemTypes = [BaseItemKind.Movie],
+                            IsVirtualItem = false,
+                            Recursive = true,
+                            HasTmdbId = true,
+                        }
+                    )
+                    .Select(m => m as Movie)
+                    .Where(IsEligible)
+                    .ToList();
+            }
+            else
+            {
+                return _libraryManager
+                    .GetItemList(
+                        new InternalItemsQuery
+                        {
+                            IncludeItemTypes = [BaseItemKind.Movie],
+                            IsVirtualItem = false,
+                            Recursive = true,
+                            HasTmdbId = true,
+                        }
+                    )
+                    .Select(m => m as Movie)
+                    .ToList();
+            }
+
+
         }
 
-        private List<Episode> GetEpisodesFromLibrary()
+        private List<Episode> GetEpisodesFromLibrary(bool checkIsEligible)
         {
-            return _libraryManager
-                .GetItemList(
-                    new InternalItemsQuery
-                    {
-                        IncludeItemTypes = [BaseItemKind.Episode],
-                        IsVirtualItem = false,
-                        Recursive = true,
-                        HasTvdbId = true,
-                    }
-                )
-                .Select(m => m as Episode)
-                .Where(IsEligible)
-                .ToList();
+            if (checkIsEligible)
+            {
+                return _libraryManager
+                    .GetItemList(
+                        new InternalItemsQuery
+                        {
+                            IncludeItemTypes = [BaseItemKind.Episode],
+                            IsVirtualItem = false,
+                            Recursive = true,
+                            HasTvdbId = true,
+                        }
+                    )
+                    .Select(m => m as Episode)
+                    .Where(IsEligible)
+                    .ToList();
+            }
+            else
+            {
+                return _libraryManager
+                    .GetItemList(
+                        new InternalItemsQuery
+                        {
+                            IncludeItemTypes = [BaseItemKind.Episode],
+                            IsVirtualItem = false,
+                            Recursive = true,
+                            HasTvdbId = true,
+                        }
+                    )
+                    .Select(m => m as Episode)
+                    .ToList();
+            }
         }
 
         private async Task MergeVersions(List<Guid> ids)

@@ -101,12 +101,12 @@ namespace Jellyfin.Plugin.MergeVersions
                 if (mediaType == MediaType.Movie)
                 {
                     //_logger.LogInformation($"Movie deleted, splitting versions: {name} ({productionYearInt})");
-                    await _mergeVersionsManager.SplitMoviesAsync(name, productionYearInt, null);
+                    await _mergeVersionsManager.SplitMoviesAsync(name, productionYearInt, true, null);
                 }
                 else if (mediaType == MediaType.Episode)
                 {
                     //_logger.LogInformation($"Episode deleted, splitting versions: {seriesName}: S{parentIndexNumberInt} E{indexNumberInt} - {name} ({productionYearInt})");
-                    await _mergeVersionsManager.SplitEpisodesAsync(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, null);
+                    await _mergeVersionsManager.SplitEpisodesAsync(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, true, null);
                 }
             }
             catch (TaskCanceledException){ }
@@ -209,35 +209,38 @@ namespace Jellyfin.Plugin.MergeVersions
                 _mergeEpisodesInProgress = false;
                 return;
             }
-
-            await _semaphore.WaitAsync();
-            try
+            else
             {
-                int? productionYearInt = 
-                    !string.IsNullOrEmpty(productionYear) && int.TryParse(productionYear, out var parsedProdYear) ? (int?)parsedProdYear : null;
-                int? parentIndexNumberInt = 
-                    !string.IsNullOrEmpty(parentIndexNumber) && int.TryParse(parentIndexNumber, out var parsedParentIndex) ? (int?)parsedParentIndex : null;
-                int? indexNumberInt = 
-                    !string.IsNullOrEmpty(indexNumber) && int.TryParse(indexNumber, out var parsedIndex) ? (int?)parsedIndex : null;
-
-                if (mediaType == MediaType.Movie)
+                //_logger.LogInformation($"Doing single merge...");
+                await _semaphore.WaitAsync();
+                try
                 {
-                    //_logger.LogInformation($"Searching versions for Movie: {name} ({productionYearInt})");
-                    await _mergeVersionsManager.MergeMoviesAsync(name, productionYearInt, null);
-                }
-                else if (mediaType == MediaType.Episode)
-                {
-                    //_logger.LogInformation($"Searching versions for Episode: {seriesName}: S{parentIndexNumberInt} E{indexNumberInt} - {name} ({productionYearInt})");
-                    await _mergeVersionsManager.MergeEpisodesAsync(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, null);
-                }
-            }
-            catch (TaskCanceledException){ }
-            finally
-            {                
-                _semaphore.Release();
+                    int? productionYearInt = 
+                        !string.IsNullOrEmpty(productionYear) && int.TryParse(productionYear, out var parsedProdYear) ? (int?)parsedProdYear : null;
+                    int? parentIndexNumberInt = 
+                        !string.IsNullOrEmpty(parentIndexNumber) && int.TryParse(parentIndexNumber, out var parsedParentIndex) ? (int?)parsedParentIndex : null;
+                    int? indexNumberInt = 
+                        !string.IsNullOrEmpty(indexNumber) && int.TryParse(indexNumber, out var parsedIndex) ? (int?)parsedIndex : null;
 
-                await Task.Delay(TimeSpan.FromMilliseconds(5000));
-                _processingMergeItems.TryRemove(key, out _);
+                    if (mediaType == MediaType.Movie)
+                    {
+                        //_logger.LogInformation($"Searching versions for Movie: {name} ({productionYearInt})");
+                        await _mergeVersionsManager.MergeMoviesAsync(name, productionYearInt, null);
+                    }
+                    else if (mediaType == MediaType.Episode)
+                    {
+                        //_logger.LogInformation($"Searching versions for Episode: {seriesName}: S{parentIndexNumberInt} E{indexNumberInt} - {name} ({productionYearInt})");
+                        await _mergeVersionsManager.MergeEpisodesAsync(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, null);
+                    }
+                }
+                catch (TaskCanceledException){ }
+                finally
+                {                
+                    _semaphore.Release();
+
+                    await Task.Delay(TimeSpan.FromMilliseconds(5000));
+                    _processingMergeItems.TryRemove(key, out _);
+                }   
             }
         }
 
