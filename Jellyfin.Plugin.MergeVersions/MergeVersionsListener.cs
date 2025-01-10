@@ -167,7 +167,7 @@ namespace Jellyfin.Plugin.MergeVersions
                 return;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(5000));
+            await Task.Delay(TimeSpan.FromMilliseconds(15000));
             
             if (_processingMergeItems.Count(item => item.Key.EndsWith($"-{MediaType.Movie}")) >= 5)
             {
