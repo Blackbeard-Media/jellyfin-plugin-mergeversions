@@ -36,15 +36,19 @@ namespace Jellyfin.Plugin.MergeVersions
             _fileSystem = fileSystem;
         }
 
-        public async Task MergeMoviesAsync(String name, int? productionYear, IProgress<double> progress)
+        public async Task MergeMoviesAsync(String name, int? productionYear, bool singleMerge, IProgress<double> progress)
         {
-            if (name != null)
+            if (name != null && productionYear != null && singleMerge == true)
             {
                 _logger.LogInformation($"Scanning for repeated movies: {name} ({productionYear})");
             } 
-            else
+            else if (name == null && productionYear == null && singleMerge == false)
             {
                 _logger.LogInformation("Scanning for repeated movies");
+            }
+            else
+            {
+                return;
             }
 
             var duplicateMovies = GetMoviesFromLibrary(true)
@@ -63,14 +67,12 @@ namespace Jellyfin.Plugin.MergeVersions
                     current++;
                     var percent = current / (double)duplicateMovies.Count * 100;
                     progress?.Report((int)percent);
-                    _logger.LogInformation(
-                        $"Merging {m.ElementAt(0).Name} ({m.ElementAt(0).ProductionYear})"
-                    );
-                    Stopwatch stopwatch = new Stopwatch();
-                    stopwatch.Start();
+                    //_logger.LogInformation($"Merging {m.ElementAt(0).Name} ({m.ElementAt(0).ProductionYear})");
+                    //Stopwatch stopwatch = new Stopwatch();
+                    //stopwatch.Start();
                     await MergeVersions(m.Select(m => m.Id).ToList());
-                    stopwatch.Stop();
-                    _logger.LogInformation($"MergeVersions Execution Time: {stopwatch.ElapsedMilliseconds} ms");
+                    //stopwatch.Stop();
+                    //_logger.LogInformation($"MergeVersions Execution Time: {stopwatch.ElapsedMilliseconds} ms");
                 }
             progress?.Report(100);
         }
@@ -92,25 +94,29 @@ namespace Jellyfin.Plugin.MergeVersions
                 progress?.Report((int)percent);
 
                 _logger.LogInformation($"Splitting Movie: {m.Name} ({m.ProductionYear})");
-                Stopwatch stopwatch = new Stopwatch();
-                stopwatch.Start();
+                //Stopwatch stopwatch = new Stopwatch();
+                //stopwatch.Start();
                 await DeleteAlternateSources(m.Id);
-                stopwatch.Stop();
-                _logger.LogInformation($"DeleteAlternateSources Execution Time : {stopwatch.ElapsedMilliseconds} ms");                
+                //stopwatch.Stop();
+                //_logger.LogInformation($"DeleteAlternateSources Execution Time : {stopwatch.ElapsedMilliseconds} ms");                
             }
             progress?.Report(100);
         }
 
         public async Task MergeEpisodesAsync(
-            String name, int? productionYear, string seriesName, int? parentIndexNumber, int? indexNumber, IProgress<double> progress)
+            String name, int? productionYear, string seriesName, int? parentIndexNumber, int? indexNumber, bool singleMerge, IProgress<double> progress)
         {   
-            if (name != null)
+            if (name != null && productionYear != null && seriesName != null && parentIndexNumber != null && indexNumber != null && singleMerge == true)
             {
                 _logger.LogInformation($"Scanning for repeated episodes on: {seriesName}: S{parentIndexNumber} E{indexNumber} - {name} ({productionYear})");
             } 
-            else
+            else if (name == null && productionYear == null && seriesName == null && parentIndexNumber == null && indexNumber == null && singleMerge == false)
             {
                 _logger.LogInformation("Scanning for repeated episodes");
+            }
+            else 
+            {
+                return;
             }
 
             var duplicateEpisodes = GetEpisodesFromLibrary(true)
@@ -132,14 +138,12 @@ namespace Jellyfin.Plugin.MergeVersions
                 current++;
                 var percent = current / (double)duplicateEpisodes.Count * 100;
                 progress?.Report((int)percent);
-                _logger.LogInformation(
-                    $"Merging {e.ElementAt(0).SeriesName}: S{e.ElementAt(0).ParentIndexNumber} E{e.ElementAt(0).IndexNumber} - {e.ElementAt(0).Name} ({e.ElementAt(0).ProductionYear})"
-                );
-                Stopwatch stopwatch = new Stopwatch();
-                stopwatch.Start();
+                // _logger.LogInformation($"Merging {e.ElementAt(0).SeriesName}: S{e.ElementAt(0).ParentIndexNumber} E{e.ElementAt(0).IndexNumber} - {e.ElementAt(0).Name} ({e.ElementAt(0).ProductionYear})");
+                //Stopwatch stopwatch = new Stopwatch();
+                //stopwatch.Start();
                 await MergeVersions(e.Select(e => e.Id).ToList());
-                stopwatch.Stop();
-                _logger.LogInformation($"MergeVersions Execution Time : {stopwatch.ElapsedMilliseconds} ms");
+                //stopwatch.Stop();
+                //_logger.LogInformation($"MergeVersions Execution Time : {stopwatch.ElapsedMilliseconds} ms");
             }
             progress?.Report(100);
         }
@@ -164,12 +168,12 @@ namespace Jellyfin.Plugin.MergeVersions
                 var percent = current / (double)episodes.Count * 100;
                 progress?.Report((int)percent);
 
-                _logger.LogInformation($"Splitting Episode: {e.SeriesName}. S{e.ParentIndexNumber} E{e.IndexNumber}, {e.Name} ({e.ProductionYear})");
-                Stopwatch stopwatch = new Stopwatch();
-                stopwatch.Start();
+                _logger.LogInformation($"Splitting Episode: {e.SeriesName}: S{e.ParentIndexNumber} E{e.IndexNumber}, {e.Name} ({e.ProductionYear})");
+                //Stopwatch stopwatch = new Stopwatch();
+                //stopwatch.Start();
                 await DeleteAlternateSources(e.Id);
-                stopwatch.Stop();
-                _logger.LogInformation($"DeleteAlternateSources Execution Time : {stopwatch.ElapsedMilliseconds} ms");
+                //stopwatch.Stop();
+                //_logger.LogInformation($"DeleteAlternateSources Execution Time : {stopwatch.ElapsedMilliseconds} ms");
             }
             progress?.Report(100);
         }
@@ -253,7 +257,7 @@ namespace Jellyfin.Plugin.MergeVersions
                 .OrderBy(i => i.Id)
                 .ToList();
 
-            _logger.LogInformation($"Items to merge: {items.Count}");
+            //_logger.LogInformation($"Items to merge: {items.Count}");
 
             if (items.Count < 2)
             {

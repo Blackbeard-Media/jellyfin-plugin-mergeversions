@@ -19,12 +19,9 @@ namespace Jellyfin.Plugin.MergeVersions
         private readonly MergeVersionsManager _mergeVersionsManager;
         private readonly ILogger<MergeVersionsListener> _logger;
 
-        private readonly ConcurrentDictionary<string, bool> _processingMergeItems = new ConcurrentDictionary<string, bool>();
-        private readonly ConcurrentDictionary<string, bool> _processingSplitItems = new ConcurrentDictionary<string, bool>();
-
-        private bool _mergeMoviesInProgress = false;
-        private bool _mergeEpisodesInProgress = false;
-        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(4); // limit concurrent async tasks
+        private bool _mergeInProgress = false;
+        private static readonly object _mergeLock = new object();
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // limit concurrent async tasks
         
         private enum MediaType
         {
@@ -76,28 +73,26 @@ namespace Jellyfin.Plugin.MergeVersions
                 return;
             }
 
-            _ = SplitRemovedItem(name, productionYear, seriesName, parentIndexNumber, indexNumber, mediaType);
+            int? productionYearInt = 
+                !string.IsNullOrEmpty(productionYear) && int.TryParse(productionYear, out var parsedProdYear) ? (int?)parsedProdYear : null;
+            int? parentIndexNumberInt = 
+                !string.IsNullOrEmpty(parentIndexNumber) && int.TryParse(parentIndexNumber, out var parsedParentIndex) ? (int?)parsedParentIndex : null;
+            int? indexNumberInt = 
+                !string.IsNullOrEmpty(indexNumber) && int.TryParse(indexNumber, out var parsedIndex) ? (int?)parsedIndex : null;
+
+
+            await SplitRemovedItem(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, mediaType);
+
+            await Task.Delay(TimeSpan.FromSeconds(10)).ConfigureAwait(false);    
+            await MergeRemovedItem(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, mediaType);
         }
         
         private async Task SplitRemovedItem(
-            string name, string productionYear, string seriesName, string parentIndexNumber, string indexNumber, MediaType mediaType)
-        {
-            string key = $"{name}-{productionYear}-{seriesName}-{parentIndexNumber}-{indexNumber}-{mediaType}";
-            if (!_processingSplitItems.TryAdd(key, true))
-            {
-                return;
-            }
-            
+            string name, int? productionYearInt, string seriesName, int? parentIndexNumberInt, int? indexNumberInt, MediaType mediaType)
+        {            
             await _semaphore.WaitAsync();
             try
             {
-                int? productionYearInt = 
-                    !string.IsNullOrEmpty(productionYear) && int.TryParse(productionYear, out var parsedProdYear) ? (int?)parsedProdYear : null;
-                int? parentIndexNumberInt = 
-                    !string.IsNullOrEmpty(parentIndexNumber) && int.TryParse(parentIndexNumber, out var parsedParentIndex) ? (int?)parsedParentIndex : null;
-                int? indexNumberInt = 
-                    !string.IsNullOrEmpty(indexNumber) && int.TryParse(indexNumber, out var parsedIndex) ? (int?)parsedIndex : null;
-
                 if (mediaType == MediaType.Movie)
                 {
                     //_logger.LogInformation($"Movie deleted, splitting versions: {name} ({productionYearInt})");
@@ -113,141 +108,88 @@ namespace Jellyfin.Plugin.MergeVersions
             finally
             {
                 _semaphore.Release();
-                _processingSplitItems.TryRemove(key, out _);
             }
         }
 
-        private void OnLibraryManagerItemUpdated(object sender, ItemChangeEventArgs e)
+        private async Task MergeRemovedItem(
+            string name, int? productionYearInt, string seriesName, int? parentIndexNumberInt, int? indexNumberInt, MediaType mediaType)
         {
-            if (e.Item.LocationType == LocationType.Virtual)
+            if (_mergeInProgress)
             {
                 return;
             }
-
-            string name;
-            string productionYear = string.Empty;
-            string seriesName = string.Empty;
-            string parentIndexNumber = string.Empty;
-            string indexNumber = string.Empty;
-            MediaType mediaType;
-
-            if (e.Item is Movie movie && !string.IsNullOrEmpty(movie.Name)) 
+                
+            //_logger.LogInformation($"Doing single merge...");
+            await _semaphore.WaitAsync();
+            try
             {
-                name = movie.Name;
-                productionYear = movie.ProductionYear != null ? movie.ProductionYear.ToString() : string.Empty;
-                mediaType = MediaType.Movie;
-
-                //_logger.LogInformation($"New Movie added: {name} ({productionYear})");
+                if (mediaType == MediaType.Movie)
+                {
+                    //_logger.LogInformation($"Searching versions for Movie: {name} ({productionYearInt})");
+                    await _mergeVersionsManager.MergeMoviesAsync(name, productionYearInt, true, null);
+                }
+                else if (mediaType == MediaType.Episode)
+                {
+                    //_logger.LogInformation($"Searching versions for Episode: {seriesName}: S{parentIndexNumberInt} E{indexNumberInt} - {name} ({productionYearInt})");
+                    await _mergeVersionsManager.MergeEpisodesAsync(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, true, null);
+                }
             }
-            else if (e.Item is Episode episode && !string.IsNullOrEmpty(episode.Name)) 
-            {
-                name = episode.Name;
-                productionYear = episode.ProductionYear != null ? episode.ProductionYear.ToString() : string.Empty;
-                seriesName = episode.SeriesName;
-                parentIndexNumber = episode.ParentIndexNumber.ToString();
-                indexNumber = episode.IndexNumber.ToString();
-                mediaType = MediaType.Episode;
-
-                //_logger.LogInformation($"New Episode added: {name} ({int.Parse(productionYear)})");
-            }
-            else 
-            {
-                return;
-            }
-
-            _ = MergeUpdatedItem(name, productionYear, seriesName, parentIndexNumber, indexNumber, mediaType);
+            catch (TaskCanceledException){ }
+            finally
+            {                
+                _semaphore.Release();
+            }   
         }
 
-        private async Task MergeUpdatedItem(
-            string name, string productionYear, string seriesName, string parentIndexNumber, string indexNumber, MediaType mediaType)
+        private async void OnLibraryManagerItemAdded(object sender, ItemChangeEventArgs e)
         {
-            string key = $"{name}-{productionYear}-{seriesName}-{parentIndexNumber}-{indexNumber}-{mediaType}";
-            if (!_processingMergeItems.TryAdd(key, true))
+            if (!(e.Item is Movie) && !(e.Item is Episode) || e.Item.LocationType == LocationType.Virtual || _mergeInProgress)
             {
                 return;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(15000));
-            
-            if (_processingMergeItems.Count(item => item.Key.EndsWith($"-{MediaType.Movie}")) >= 5)
+            using (var cancellationTokenSource = new CancellationTokenSource())
             {
-                if (_mergeMoviesInProgress)
-                {
-                    return;
-                }
-                _mergeMoviesInProgress = true;
-
-                await _mergeVersionsManager.MergeMoviesAsync(null, null, null);
-
-                foreach (var eKey in _processingMergeItems.Keys.ToList())
-                {
-                    if (eKey.Contains("-" + MediaType.Movie.ToString()))
-                    {
-                        _processingMergeItems.TryRemove(eKey, out _);
-                    }
-                }
-                _mergeMoviesInProgress = false;
-                return;
-            }
-            else if (_processingMergeItems.Count(item => item.Key.EndsWith($"-{MediaType.Episode}")) >= 15)
-            {
-                if (_mergeEpisodesInProgress)
-                {
-                    return;
-                }
-                _mergeEpisodesInProgress = true;
-
-                await _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, null);
-
-                foreach (var eKey in _processingMergeItems.Keys.ToList())
-                {
-                    if (eKey.Contains("-" + MediaType.Episode.ToString()))
-                    {
-                        _processingMergeItems.TryRemove(eKey, out _);
-                    }
-                }
-                _mergeEpisodesInProgress = false;
-                return;
-            }
-            else
-            {
-                //_logger.LogInformation($"Doing single merge...");
-                await _semaphore.WaitAsync();
+                var cancellationToken = cancellationTokenSource.Token;
                 try
                 {
-                    int? productionYearInt = 
-                        !string.IsNullOrEmpty(productionYear) && int.TryParse(productionYear, out var parsedProdYear) ? (int?)parsedProdYear : null;
-                    int? parentIndexNumberInt = 
-                        !string.IsNullOrEmpty(parentIndexNumber) && int.TryParse(parentIndexNumber, out var parsedParentIndex) ? (int?)parsedParentIndex : null;
-                    int? indexNumberInt = 
-                        !string.IsNullOrEmpty(indexNumber) && int.TryParse(indexNumber, out var parsedIndex) ? (int?)parsedIndex : null;
+                    await Task.Delay(TimeSpan.FromSeconds(60), cancellationToken).ConfigureAwait(false);
+                }
+                catch (TaskCanceledException)
+                {
+                    return;
+                }
 
-                    if (mediaType == MediaType.Movie)
+                lock (_mergeLock)
+                {
+                    if (_mergeInProgress)
                     {
-                        //_logger.LogInformation($"Searching versions for Movie: {name} ({productionYearInt})");
-                        await _mergeVersionsManager.MergeMoviesAsync(name, productionYearInt, null);
+                        return;
                     }
-                    else if (mediaType == MediaType.Episode)
+                    _mergeInProgress = true;
+                    cancellationTokenSource.Cancel();
+                }
+
+                try
+                {
+                    await _mergeVersionsManager.MergeMoviesAsync(null, null, false, null);
+                    await _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, false, null);
+                }
+                catch (TaskCanceledException) { }
+                finally
+                {
+                    lock (_mergeLock)
                     {
-                        //_logger.LogInformation($"Searching versions for Episode: {seriesName}: S{parentIndexNumberInt} E{indexNumberInt} - {name} ({productionYearInt})");
-                        await _mergeVersionsManager.MergeEpisodesAsync(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, null);
+                        _mergeInProgress = false;
                     }
                 }
-                catch (TaskCanceledException){ }
-                finally
-                {                
-                    _semaphore.Release();
-
-                    await Task.Delay(TimeSpan.FromMilliseconds(5000));
-                    _processingMergeItems.TryRemove(key, out _);
-                }   
             }
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
             // Subscribe to the library's item added and removed event
-            _libraryManager.ItemUpdated += OnLibraryManagerItemUpdated;
+            _libraryManager.ItemAdded += OnLibraryManagerItemAdded;
             _libraryManager.ItemRemoved += OnLibraryManagerItemRemoved;
 
             return Task.CompletedTask;
@@ -256,7 +198,7 @@ namespace Jellyfin.Plugin.MergeVersions
         public Task StopAsync(CancellationToken cancellationToken)
         {
             // Unsubscribe to the library's item added and removed event
-            _libraryManager.ItemUpdated -= OnLibraryManagerItemUpdated;
+            _libraryManager.ItemAdded -= OnLibraryManagerItemAdded;
             _libraryManager.ItemRemoved -= OnLibraryManagerItemRemoved;
 
             return Task.CompletedTask;

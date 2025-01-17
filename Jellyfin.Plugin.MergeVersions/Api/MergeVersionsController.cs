@@ -46,7 +46,7 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         public async Task<ActionResult> MergeMoviesRequestAsync()
         {
             _logger.LogInformation("Starting a manual refresh, looking up for repeated versions");
-            _ = _mergeVersionsManager.MergeMoviesAsync(null, null, null);
+            _ = _mergeVersionsManager.MergeMoviesAsync(null, null, false, null);
             return NoContent();
         }
 
@@ -74,7 +74,7 @@ namespace Jellyfin.Plugin.MergeVersions.Api
         public async Task<ActionResult> MergeEpisodesRequestAsync()
         {
             _logger.LogInformation("Starting a manual refresh, looking up for repeated versions");
-            _ = _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, null);
+            _ = _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, false, null);
             return NoContent();
         }
 
