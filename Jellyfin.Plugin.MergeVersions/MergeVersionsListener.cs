@@ -82,9 +82,8 @@ namespace Jellyfin.Plugin.MergeVersions
 
 
             await SplitRemovedItem(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, mediaType);
-
-            await Task.Delay(TimeSpan.FromSeconds(10)).ConfigureAwait(false);    
-            await MergeRemovedItem(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, mediaType);
+               
+            _ = MergeItemsAsync();
         }
         
         private async Task SplitRemovedItem(
@@ -111,36 +110,6 @@ namespace Jellyfin.Plugin.MergeVersions
             }
         }
 
-        private async Task MergeRemovedItem(
-            string name, int? productionYearInt, string seriesName, int? parentIndexNumberInt, int? indexNumberInt, MediaType mediaType)
-        {
-            if (_mergeInProgress)
-            {
-                return;
-            }
-                
-            //_logger.LogInformation($"Doing single merge...");
-            await _semaphore.WaitAsync();
-            try
-            {
-                if (mediaType == MediaType.Movie)
-                {
-                    //_logger.LogInformation($"Searching versions for Movie: {name} ({productionYearInt})");
-                    await _mergeVersionsManager.MergeMoviesAsync(name, productionYearInt, true, null);
-                }
-                else if (mediaType == MediaType.Episode)
-                {
-                    //_logger.LogInformation($"Searching versions for Episode: {seriesName}: S{parentIndexNumberInt} E{indexNumberInt} - {name} ({productionYearInt})");
-                    await _mergeVersionsManager.MergeEpisodesAsync(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, true, null);
-                }
-            }
-            catch (TaskCanceledException){ }
-            finally
-            {                
-                _semaphore.Release();
-            }   
-        }
-
         private async void OnLibraryManagerItemAdded(object sender, ItemChangeEventArgs e)
         {
             if (!(e.Item is Movie) && !(e.Item is Episode) || e.Item.LocationType == LocationType.Virtual || _mergeInProgress)
@@ -148,6 +117,11 @@ namespace Jellyfin.Plugin.MergeVersions
                 return;
             }
 
+            _ = MergeItemsAsync();
+        }
+
+        private async Task MergeItemsAsync()
+        {
             using (var cancellationTokenSource = new CancellationTokenSource())
             {
                 var cancellationToken = cancellationTokenSource.Token;
@@ -188,7 +162,6 @@ namespace Jellyfin.Plugin.MergeVersions
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            // Subscribe to the library's item added and removed event
             _libraryManager.ItemAdded += OnLibraryManagerItemAdded;
             _libraryManager.ItemRemoved += OnLibraryManagerItemRemoved;
 
@@ -197,7 +170,6 @@ namespace Jellyfin.Plugin.MergeVersions
 
         public Task StopAsync(CancellationToken cancellationToken)
         {
-            // Unsubscribe to the library's item added and removed event
             _libraryManager.ItemAdded -= OnLibraryManagerItemAdded;
             _libraryManager.ItemRemoved -= OnLibraryManagerItemRemoved;
 
