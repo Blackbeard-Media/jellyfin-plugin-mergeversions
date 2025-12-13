@@ -189,10 +189,10 @@ namespace Jellyfin.Plugin.MergeVersions
                             IncludeItemTypes = [BaseItemKind.Movie],
                             IsVirtualItem = false,
                             Recursive = true,
-                            HasTmdbId = true,
                         }
                     )
                     .Select(m => m as Movie)
+                    .Where(m => m.ProviderIds.ContainsKey("Tmdb"))
                     .Where(IsEligible)
                     .ToList();
             }
@@ -205,10 +205,10 @@ namespace Jellyfin.Plugin.MergeVersions
                             IncludeItemTypes = [BaseItemKind.Movie],
                             IsVirtualItem = false,
                             Recursive = true,
-                            HasTmdbId = true,
                         }
                     )
                     .Select(m => m as Movie)
+                    .Where(m => m.ProviderIds.ContainsKey("Tmdb"))
                     .ToList();
             }
 
@@ -226,10 +226,10 @@ namespace Jellyfin.Plugin.MergeVersions
                             IncludeItemTypes = [BaseItemKind.Episode],
                             IsVirtualItem = false,
                             Recursive = true,
-                            HasTvdbId = true,
                         }
                     )
                     .Select(m => m as Episode)
+                    .Where(m => m.ProviderIds.ContainsKey("Tvdb"))
                     .Where(IsEligible)
                     .ToList();
             }
@@ -242,10 +242,10 @@ namespace Jellyfin.Plugin.MergeVersions
                             IncludeItemTypes = [BaseItemKind.Episode],
                             IsVirtualItem = false,
                             Recursive = true,
-                            HasTvdbId = true,
                         }
                     )
                     .Select(m => m as Episode)
+                    .Where(m => m.ProviderIds.ContainsKey("Tvdb"))
                     .ToList();
             }
         }
@@ -369,11 +369,6 @@ namespace Jellyfin.Plugin.MergeVersions
             if (item.LinkedAlternateVersions.Length == 0 && item.PrimaryVersionId != null)
             {
                 item = _libraryManager.GetItemById<Video>(Guid.Parse(item.PrimaryVersionId));
-            }
-
-            if (item is null)
-            {
-                return;
             }
 
             foreach (var link in item.GetLinkedAlternateVersions())
