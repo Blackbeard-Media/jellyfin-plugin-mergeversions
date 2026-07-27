@@ -24,12 +24,12 @@ namespace Jellyfin.Plugin.MergeVersions.ScheduledTasks
             _mergeVersionsManager = new MergeVersionsManager(libraryManager, logger, fileSystem);
         }
 
-        public Task Execute(CancellationToken cancellationToken, IProgress<double> progress)
+        public async Task Execute(CancellationToken cancellationToken, IProgress<double> progress)
         {
-            _logger.LogInformation("Starting plugin, Merging Movies");
-            _mergeVersionsManager.MergeMoviesAsync(null, null, false, progress);
-            //_logger.LogInformation("All movies merged");
-            return Task.CompletedTask;
+            _logger.LogInformation("Merging movies...");
+            await _mergeVersionsManager.MergeMoviesAsync(null, null, false, progress);
+            _logger.LogInformation("All movies merged");
+            return;
         }
 
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
@@ -52,7 +52,7 @@ namespace Jellyfin.Plugin.MergeVersions.ScheduledTasks
 
         public string Name => "Merge All Movies";
         public string Key => "MergeMoviesTask";
-        public string Description => "Scans all libraries to merge repeated movies";
+        public string Description => "Merge all repeated movies";
         public string Category => "Merge Versions";
     }
 
@@ -73,9 +73,9 @@ namespace Jellyfin.Plugin.MergeVersions.ScheduledTasks
 
         public async Task Execute(CancellationToken cancellationToken, IProgress<double> progress)
         {
-            _logger.LogInformation("Starting plugin, Merging Episodes");
+            _logger.LogInformation("Merging Episodes...");
             await _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, false, progress);
-            //_logger.LogInformation("All episodes merged");
+            _logger.LogInformation("All episodes merged");
             return;
         }
 

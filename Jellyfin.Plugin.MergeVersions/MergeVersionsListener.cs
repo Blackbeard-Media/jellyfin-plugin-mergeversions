@@ -8,6 +8,7 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -16,12 +17,15 @@ namespace Jellyfin.Plugin.MergeVersions
     public class MergeVersionsListener : IHostedService, IDisposable
     {
         private readonly ILibraryManager _libraryManager;
+        private readonly ITaskManager _taskManager;
         private readonly MergeVersionsManager _mergeVersionsManager;
         private readonly ILogger<MergeVersionsListener> _logger;
 
+        private CancellationTokenSource _mergeCancellationTokenSource;
+        private bool _mergeScheduled = false;
         private bool _mergeInProgress = false;
         private static readonly object _mergeLock = new object();
-        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // limit concurrent async tasks
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
         
         private enum MediaType
         {
@@ -31,10 +35,12 @@ namespace Jellyfin.Plugin.MergeVersions
 
         public MergeVersionsListener(
             ILibraryManager libraryManager, 
+            ITaskManager taskManager,
             MergeVersionsManager mergeVersionsManager, 
             ILogger<MergeVersionsListener> logger)
         {
             _libraryManager = libraryManager;
+            _taskManager = taskManager;
             _mergeVersionsManager = mergeVersionsManager; 
             _logger = logger;
         }
@@ -83,7 +89,7 @@ namespace Jellyfin.Plugin.MergeVersions
 
             await SplitRemovedItem(name, productionYearInt, seriesName, parentIndexNumberInt, indexNumberInt, mediaType);
                
-            _ = MergeItemsAsync();
+            ScheduleMerge();
         }
         
         private async Task SplitRemovedItem(
@@ -110,52 +116,78 @@ namespace Jellyfin.Plugin.MergeVersions
             }
         }
 
-        private async void OnLibraryManagerItemAdded(object sender, ItemChangeEventArgs e)
+        private void OnLibraryManagerItemAdded(object sender, ItemChangeEventArgs e)
         {
-            if (!(e.Item is Movie) && !(e.Item is Episode) || e.Item.LocationType == LocationType.Virtual || _mergeInProgress)
+            if (!(e.Item is Movie) && !(e.Item is Episode) || e.Item.LocationType == LocationType.Virtual)
             {
                 return;
             }
 
-            _ = MergeItemsAsync();
+            ScheduleMerge();
         }
 
-        private async Task MergeItemsAsync()
+        private void ScheduleMerge()
         {
-            using (var cancellationTokenSource = new CancellationTokenSource())
+            lock (_mergeLock)
             {
-                var cancellationToken = cancellationTokenSource.Token;
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(60), cancellationToken).ConfigureAwait(false);
-                }
-                catch (TaskCanceledException)
+                if (_mergeScheduled || _mergeInProgress)
                 {
                     return;
                 }
 
+                _mergeScheduled = true;
+                _mergeCancellationTokenSource = new CancellationTokenSource();
+                _ = MergeItemsAsync(_mergeCancellationTokenSource.Token);
+            }
+        }
+
+
+        private async Task MergeItemsAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(60), cancellationToken).ConfigureAwait(false);
+            }
+            catch (TaskCanceledException)
+            {
                 lock (_mergeLock)
                 {
-                    if (_mergeInProgress)
-                    {
-                        return;
-                    }
-                    _mergeInProgress = true;
-                    cancellationTokenSource.Cancel();
+                    _mergeScheduled = false;
                 }
+                return;
+            }
 
-                try
+            lock (_mergeLock)
+            {
+                _mergeScheduled = false;
+
+                if (_mergeInProgress)
                 {
-                    await _mergeVersionsManager.MergeMoviesAsync(null, null, false, null);
-                    await _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, false, null);
+                    return;
                 }
-                catch (TaskCanceledException) { }
-                finally
+                _mergeInProgress = true;
+            }
+
+            try
+            {
+                //await _mergeVersionsManager.MergeMoviesAsync(null, null, false, null);
+                //await _mergeVersionsManager.MergeEpisodesAsync(null, null, null, null, null, false, null);  
+
+                foreach (var taskName in new[] { "Merge All Movies", "Merge All Episodes" })
                 {
-                    lock (_mergeLock)
+                    var task = _taskManager.ScheduledTasks.FirstOrDefault(t => t.Name == taskName);
+                    if (task != null)
                     {
-                        _mergeInProgress = false;
+                        await _taskManager.Execute(task, new TaskOptions());
                     }
+                }
+            }
+            catch (TaskCanceledException) { }
+            finally
+            {
+                lock (_mergeLock)
+                {
+                    _mergeInProgress = false;
                 }
             }
         }
