@@ -15,8 +15,6 @@ namespace Jellyfin.Plugin.MergeVersions
 {
     public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages 
     {
-        private readonly ILoggerFactory _loggerFactory;
-
         public Plugin(IServerApplicationPaths appPaths, IXmlSerializer xmlSerializer, ILibraryManager libraryManager, ILoggerFactory loggerFactory, IFileSystem fileSystem)
             : base(appPaths, xmlSerializer)
         {

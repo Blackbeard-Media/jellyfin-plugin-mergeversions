@@ -23,7 +23,6 @@ namespace Jellyfin.Plugin.MergeVersions
     {
         private readonly ILibraryManager _libraryManager;
         private readonly ILogger<MergeVersionsManager> _logger;
-        private readonly SessionInfo _session;
         private readonly IFileSystem _fileSystem;
 
         public MergeVersionsManager(
@@ -371,6 +370,11 @@ namespace Jellyfin.Plugin.MergeVersions
                 item = _libraryManager.GetItemById<Video>(Guid.Parse(item.PrimaryVersionId));
             }
 
+            if (item is null)
+            {
+                return;
+            }
+
             foreach (var link in item.GetLinkedAlternateVersions())
             {
                 link.SetPrimaryVersionId(null);
@@ -411,10 +415,7 @@ namespace Jellyfin.Plugin.MergeVersions
 
         protected virtual void Dispose(bool disposing)
         {
-            if (disposing)
-            {
-                _session?.DisposeAsync();
-            }
+            if (disposing) { }
         }
     }
 }
